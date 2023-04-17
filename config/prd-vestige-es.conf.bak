@@ -1,0 +1,27 @@
+input {
+    jdbc {
+    jdbc_driver_library => "/mysql-connector-java-5.1.47.jar"
+    jdbc_driver_class => "com.mysql.jdbc.Driver"
+    jdbc_connection_string => "jdbc:mysql://prd-vestige-masterdb-replica.c63tfr0piamf.ap-southeast-1.rds.amazonaws.com:3306/vestige_pv??useCursorFetch=true"
+    jdbc_user => "master_appuser"
+    jdbc_password => "qmP4vOuaCM8oGT4y"
+    statement => "select * from distributorinfo where  createddate > current_timestamp-5 or updatedate > current_timestamp-5"
+    #jdbc_paging_enabled => "true"
+    jdbc_paging_enabled => "true"
+    jdbc_page_size => "200000"
+    jdbc_fetch_size => 200000
+  }
+}
+
+output {
+    amazon_es {
+        hosts => ["vpc-prd-vestige-es-56ltvwjclramivlaoo22mwazji.ap-southeast-1.es.amazonaws.com"]
+        port => "443"
+        region => "ap-southeast-1"
+        aws_access_key_id => 'AKIAJVIJGVJOJHFK2D3A'
+        aws_secret_access_key => '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'
+        index => "distributors"
+        #document_type => "distributor"
+        document_id => "%{distributorid}"
+    }
+}
