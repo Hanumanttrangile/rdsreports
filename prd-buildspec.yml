@@ -1,0 +1,41 @@
+version: 0.2
+env:
+    variables:
+        CACHE_CONTROL: "86400"
+        BUILD_ENV: "prd"
+        IMAGE_REPO_NAME: "rdsreports"
+        IMAGE_TAG: "latest"
+        AWS_ACCOUNT_ID: "435649222926"
+        AWS_DEFAULT_REGION: "ap-southeast-1"
+phases:
+    pre_build:
+        commands:
+            - echo Logging in to Amazon ECR...
+            - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+            - REPOSITORY_URI="435649222926.dkr.ecr.ap-southeast-1.amazonaws.com/${IMAGE_REPO_NAME}"
+            - echo $REPOSITORY_URI
+            - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+            - if [ -z $IMAGE_TAG ];then IMAGE_TAG="latest";fi
+            - echo $IMAGE_TAG
+
+    install:
+        runtime-versions:
+            java: openjdk8
+   
+    build:
+        commands:
+            - echo Build started on `date`
+            - cp config/$BUILD_ENV-vestige-es.conf  config/vestige-es.conf
+            - docker build -t $IMAGE_REPO_NAME:latest .
+            - docker tag $IMAGE_REPO_NAME:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$BUILD_ENV-$IMAGE_TAG
+    post_build:
+        commands:
+            - echo Build completed on `date`
+            - echo Pushing the Docker image...
+            - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$BUILD_ENV-$IMAGE_TAG
+            - docker tag $IMAGE_REPO_NAME:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$BUILD_ENV-latest
+            - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$BUILD_ENV-latest
+            - echo Writing image definitions file...
+            - printf '[{"name":"%s","imageUri":"%s","ulimits":[{"name":"nofile","softLimit":60000,"hardLimit":60000}]}]' $BUILD_ENV-$IMAGE_REPO_NAME $REPOSITORY_URI:$BUILD_ENV-$IMAGE_TAG >es.json
+artifacts:
+   files: es.json
